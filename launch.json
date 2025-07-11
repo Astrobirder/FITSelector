@@ -1,0 +1,7 @@
+{
+    "name": "Python: FITSelector.py",
+    "type": "python",
+    "request": "launch",
+    "program": "${workspaceFolder}/FITSelector.py",
+    "args": ["-i","E:\\M51\\test","-k","EQMODE=1","-t","TELESCOP"]
+}
