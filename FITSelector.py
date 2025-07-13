@@ -75,33 +75,35 @@ def main():
     # print('Args returned are: \n')
     # pprint.pprint(args)
     # print('\n')
+    log=args.log
+    copyfiles=args.copyfiles
+    movefiles=args.movefiles
+
     if log:
         print('Logging debug info to ', logfile)
+        logfile=os.path.join(inputdir, logfile)  # set the logfile to be in the output directory
         # Set up logging to a file in the inputdir
         import logging
-        logging.basicConfig(filename=os.path.join(inputdir, logfile), level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-        logging.info('Starting FITSelector with args: %s', args)
+        logging.basicConfig(filename=os.path.join(inputdir, logfile), filemode='a', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.info('\n\n Starting FITSelector with args:\n %s', args)
 
     # Verify that arguments are acceptable
     if (inputdir is None):
         inputdir = "."
         print('No input directory specified, using current directory: ', inputdir)
-        if log:
-            logging.info('No input directory specified, using current directory: %s', inputdir)
+        logging.info('No input directory specified, using current directory: %s', inputdir)  if log else None
     if not os.path.isdir(inputdir):
         print(f'Requested Input Directory ',{inputdir},' does not exist.')
+        logging.error('Requested Input Directory %s does not exist.', inputdir) if log else None
         exit(1)
 
     if ( (copyfiles or movefiles) and (outputdir is None) ):
         outputdir = os.path.join(inputdir, 'output')  # if no outputdir specified, use inputdir/output
         print('No output directory specified with move/copy!')
-        print (f'Creating & using {outputdir}.')
+        logging.info('No output directory specified with move/copy! Using %s', outputdir) if log else None
+        print (f'Creating & using {outputdir}')
         os.makedirs(outputdir, exist_ok=True) # if outputdir doesn't exist, make it.
     
-    logfile=os.path.join(inputdir, logfile)  # set the logfile to be in the output directory
-
-    
-  
     # setup have_keywords for easy checking below.
     # print('Args.keywords is: ')
     # pprint.pprint(args.keywords)
@@ -113,13 +115,14 @@ def main():
         #print('Have Keywords!')
         have_keywords = True
 
-
     # Count how many fits files we have:
 
     total_fits_files=count_files_with_glob(inputdir, '*.fit*')
 
     print('Processing FITS files in ',inputdir)
+    logging.info('Processing FITS files in %s', inputdir) if log else None
     print('Total FITS files: ', total_fits_files, '\n')
+    logging.info('Total FITS files: %d', total_fits_files) if log else None
 
     if (total_fits_files<1):
         print('Directory doesn\'t contain any valid files')
@@ -139,7 +142,8 @@ def main():
         if filename.lower().endswith('.fits') or filename.lower().endswith('.fit'):
 
             filepath = os.path.join(inputdir, filename)
-            #print({filepath})
+            # print({filepath})
+            logging.info('Examining file: %s', filepath) if log else None
             try:
                 header = fits.getheader(filepath, hdu)
                 #print('Got Header from: ', filepath)
@@ -147,8 +151,14 @@ def main():
                 #print('\n\n')                   
             except Exception as e:
                 print(f"Error reading {filename}: {e}, skipping it")
+                logging.error('Error reading %s: %s', {filename}, 'Skipping') if log else None
                 continue
+        else:
+            print('Skipping file ', filename, ' as it is not a FITS file.')
+            logging.info('Skipping file %s as it is not a FITS file.', filename) if log else None
+            continue
 
+        #print('Processing file: ',{filepath})
         # Check if we have keywords and loop goes through them.
         # Set all_keywords_match if they do
         if (have_keywords):    
@@ -171,7 +181,7 @@ def main():
                     #print ('Filename: ', filename, ' has ', row[0], ' in header')
                     op_function = operator_map.get(row[1])
                     # Compare keyword value (row[2]) to the value in the file to see if it passes
-                    if op_function(row[2],header[row[0]]):
+                    if op_function(header[row[0]],row[2]):
                         keyword_match_count += 1
 
             if (keyword_match_count==keyword_rows):
@@ -226,7 +236,7 @@ def main():
         # Completed processing of this file, increment the process counter, print results.
         process_counter += 1
         # Update print-in-place
-        print(f'Processing: {process_counter} of {total_fits_files}   Matched: {matched_files_counter}', end='\r' )
+        print(f'Processing: {process_counter} of {total_fits_files} FITS files - Matched: {matched_files_counter}', end='\r' )
         #pprint.pprint(results)
 
     # End of main loop through files.
