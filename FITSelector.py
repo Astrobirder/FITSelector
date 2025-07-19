@@ -45,9 +45,9 @@ operator_map = {            # Map for converting keyword comparison values into 
 }
 keyword_match_count = 0     # Counter to keep track of potentially multiple keyword matches.
 all_keywords_match = False  # Flag for when all keywords are matched.
-results=defaultdict(int)    # use a defaultdict for the results table, with tablekey values and counts
 log=False
 logfile='FITSelector.log'   # Log file for debug output
+results=defaultdict(int)    # use a defaultdict for the results table, with tablekey values and counts
 
 
 
@@ -133,6 +133,15 @@ def main():
     process_counter = 0
     matched_files_counter = 0
 
+# Setup the results table based on whether we have a ALLHEADERS tablekey or not.
+    if (tablekey != 'ALLHEADERS'):
+        results= defaultdict(lambda: {'count': 1}) # use a single column defaultdict to store file counts for each unique tablekey value  
+    else:
+        results=  defaultdict (lambda: {'count': 0,  'example':  None,  'comment':  None})
+        # use a 3 column defaultdict where key is each unique FITS Header, the first column has file counts 
+        # for each unique header, and then columns for the example value and comment from the header 
+        # of the file that first contained that particular header.
+
 # Main file loop
     for filename in os.listdir(inputdir):
         #print('Filename is: ',{filename})
@@ -201,21 +210,35 @@ def main():
                 #print('We have a tablekey! and it is: ', tablekey)
                 # We have a tablekey, so generate a summary table based on differing tablekeys across all the files.
 
-                # Handle any file that doesn't have a tablekey in the header
-                if (tablekey) not in header:
-                    #print (tablekey, ' is not in file ', filename, 'Setting it to None' )
-                    tablekey_value='None'
-                if (tablekey) in header:  # if the key exists, pull the value out of the header
-                    tablekey_value=header[tablekey]
+                if tablekey == 'ALLHEADERS':
+                    #print('We have ALLHEADERS as the tablekey, so we will create a list of all headers in all files')
+                    # If the tablekey is ALLHEADERS, we want to create a list of all the headers in all of the files
+                    # that are in inputdir that match all (optional) keywords, with a count of the files that contain each keyword.
+                    for key in header:
+                        if key not in results:
+                            this_example = header[key] if key in header else 'None'
+                            this_comment = header.comments[key] if key in header.comments else 'No comment'
 
-                # See if the entry already exists, and if so, increment the count, otherwise, create it and set count to 1
-                if (tablekey_value) in results:
-                    results[tablekey_value] += 1
-                    # print('Incrementing ',tablekey_value)
-                    # pprint.pprint(results)
-                else:
-                    # print('New table entry added for ', tablekey_value)
-                    results[tablekey_value] = 1
+                            results[key] = {'count': 1, 'example': header[key], 'comment': header.comments[key]}
+                        else:
+                            results[key]['count'] += 1
+
+                else: # regular tablekey processing              
+                    # Handle any file that doesn't have a tablekey in the header
+                    if (tablekey) not in header:
+                        #print (tablekey, ' is not in file ', filename, 'Setting it to None' )
+                        tablekey_value='None'
+                    if (tablekey) in header:  # if the key exists, pull the value out of the header
+                        tablekey_value=header[tablekey]
+
+                    # See if the entry already exists, and if so, increment the count, otherwise, create it and set count to 1
+                    if (tablekey_value) in results:
+                        results[tablekey_value] += 1
+                        # print('Incrementing ',tablekey_value)
+                        # pprint.pprint(results)
+                    else:
+                        # print('New table entry added for ', tablekey_value)
+                        results[tablekey_value] = 1
             
             if copyfiles:
                 #print('Copying file ', filename, ' to ', outputdir)
@@ -245,20 +268,41 @@ def main():
     if (tablekey):
         print('\n')
         total_filtered_files=0
-        print(tablekey,'\t Count')
-        print('======================')
-        for firstcol, count in sorted(results.items(), key=lambda items:items[1], reverse=True):
-            print(f"{firstcol:<14} {count:>7}")
-            total_filtered_files += count
-        print('======================')
-        total_label='Total'
-        print(f"{total_label:<14} {total_filtered_files:>7}")
-        print('\n')
-        if (have_keywords):
-            print('* that match these keywords: ')
-            for row in keyword_ndarray:
-                print(row[0],row[1],row[2])
-        print('\n')
+        if (tablekey != 'ALLHEADERS'):
+            print(tablekey,'\t Count')
+            print('======================')
+            for firstcol, count in sorted(results.items(), key=lambda items:items[1], reverse=True):
+                print(f"{firstcol:<14} {count:>7}")
+                total_filtered_files += count
+            print('======================')
+            total_label='Total'
+            print(f"{total_label:<14} {total_filtered_files:>7}")
+            print('\n')
+            if (have_keywords):
+                print('* that match these keywords: ')
+                for row in keyword_ndarray:
+                    print(row[0],row[1],row[2])
+            print('\n')
+        else:
+            print('All Headers in all files that match the keywords:')
+            print('\n')
+            print('Header     Count                 Typ. Value   Comment')
+            print('======================================++=============')
+            for header_name, data in sorted(results.items(), key=lambda items:items[1]['count'], reverse=True):
+                count = data['count']
+                example = str(data['example'])
+                if header_name == 'COMMENT':
+                    comment = data['example']  
+                    example = ""
+                    # COMMENT key is a special case, use example as comment
+                else:
+                    comment = data['comment']
+                print(f"{header_name:<10} {count:>5} {example:>26}   {comment}")
+                total_filtered_files += count
+            print('======================================++=============')
+            total_label='Total'
+            print(f"{total_label:<10} {total_filtered_files:>5}")
+            print('\n')
 
     exit(0)
 
@@ -284,8 +328,11 @@ def get_arguments():
     parser.add_argument("-k", "--keywords",  metavar='KEY=VALUE', nargs='+', 
                         help='FITS Header Keyword and value in the format -k \"EQMODE=1\". You can use multiple \
                         -k \"FITSKEY1=VALUE1 FITSKEY2=VALUE2\" keys if you want all to be true to select a file.')
-    parser.add_argument("-t, --tablekey", dest='tablekey', help='Create a summary table with a count of all the files for each unique value of the "tablekey". \
-                        NOTE: if used with -k, all the files must also match all keywords.')
+    parser.add_argument("-t, --tablekey", dest='tablekey', help='Create a summary table with a count of all the files for each unique value of the "tablekey". \n \
+                        NOTE: if used with -k, all the files must also match all keywords. \n \
+                        If you use ALLHEADERS as the tablekey, a list of all the headers in all of the files \n \
+                        that are in inputdir that match all (optional) keywords, with a count of the files that \n \
+                        contain each keyword, will be printed.')
     MoveOrCopy=parser.add_mutually_exclusive_group()
     MoveOrCopy.add_argument("-m, --move", action='store_true', dest='movefiles', help='Move files that match all keywords into the outputdir.')
     MoveOrCopy.add_argument("-c, --copy", action='store_true', dest='copyfiles', help='Copy files that match all keywords into the outputdir.')
