@@ -1,5 +1,5 @@
 # FITSelector
-A python utility for selecting FITS files from a collection, based on Header keywords and values.
+A python utility for selecting FITS files from a collection, based on FITS Header keywords and values.
 
 ## Installation
 
