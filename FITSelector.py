@@ -53,6 +53,9 @@ results=defaultdict(int)    # use a defaultdict for the results table, with tabl
 plotmap=False               # Flag to indicate if we should plot the results on a map
 column_names=['Latitude', 'Longitude', 'Count']  # Column names for the DataFrame used for plotting results on a map
 mymap=pd.DataFrame(columns=column_names)        # DataFrame for plotting results on a map
+plotmap=False               # Flag to indicate if we should plot the results on a map
+column_names=['Latitude', 'Longitude', 'Count']  # Column names for the DataFrame used for plotting results on a map
+mymap=pd.DataFrame(columns=column_names)        # DataFrame for plotting results on a map
 
 
 def main():
@@ -75,6 +78,8 @@ def main():
     global logfile
     global plotmap
     global mymap
+    global plotmap
+    global mymap
 
     signal.signal(signal.SIGINT, signal_handler) #Handle CTRL+C
     args=get_arguments()
@@ -84,6 +89,7 @@ def main():
     log=args.log
     copyfiles=args.copyfiles
     movefiles=args.movefiles
+    plotmap=args.plot
     plotmap=args.plot
 
     if log:
@@ -370,6 +376,7 @@ def get_arguments():
 
     parser=ArgumentParser(
         description='This program lets you select FITS files based on specific FITS Header keywords and their values. You can then do statistics, move or copy the files'
+        description='This program lets you select FITS files based on specific FITS Header keywords and their values. You can then do statistics, move or copy the files'
         )
 
     parser.add_argument("-i", "--inputdir", help='The directory containing your FITS files', dest='inputdir')
@@ -382,6 +389,7 @@ def get_arguments():
                         If you use ALLHEADERS as the tablekey, a list of all the headers in all of the files \n \
                         that are in inputdir that match all (optional) keywords, with a count of the files that \n \
                         contain each keyword, will be printed.')
+    parser.add_argument("-p, --plot", action='store_true', dest='plot', help='Plot the count of matching files on a map.')
     parser.add_argument("-p, --plot", action='store_true', dest='plot', help='Plot the count of matching files on a map.')
     MoveOrCopy=parser.add_mutually_exclusive_group()
     MoveOrCopy.add_argument("-m, --move", action='store_true', dest='movefiles', help='Move files that match all keywords into the outputdir.')
