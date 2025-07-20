@@ -22,6 +22,8 @@ import operator
 from collections import defaultdict
 from argparse import ArgumentParser
 import shutil
+import plotly.express as px
+import plotly.graph_objects as go
 
 
 inputdir='.'                # the directory where your FITS files are stored
@@ -48,7 +50,9 @@ all_keywords_match = False  # Flag for when all keywords are matched.
 log=False
 logfile='FITSelector.log'   # Log file for debug output
 results=defaultdict(int)    # use a defaultdict for the results table, with tablekey values and counts
-
+plotmap=False               # Flag to indicate if we should plot the results on a map
+column_names=['Latitude', 'Longitude', 'Count']  # Column names for the DataFrame used for plotting results on a map
+mymap=pd.DataFrame(columns=column_names)        # DataFrame for plotting results on a map
 
 
 def main():
@@ -69,6 +73,8 @@ def main():
     global results
     global log
     global logfile
+    global plotmap
+    global mymap
 
     signal.signal(signal.SIGINT, signal_handler) #Handle CTRL+C
     args=get_arguments()
@@ -78,6 +84,7 @@ def main():
     log=args.log
     copyfiles=args.copyfiles
     movefiles=args.movefiles
+    plotmap=args.plot
 
     if log:
         print('Logging debug info to ', logfile)
@@ -239,6 +246,23 @@ def main():
                     else:
                         # print('New table entry added for ', tablekey_value)
                         results[tablekey_value] = 1
+
+            if plotmap:
+                # If we are plotting the results on a map, we need to extract the RA and DEC from the header
+                if 'SITELAT' in header and 'SITELONG' in header:
+                    latitude = round(header['SITELAT'],2)
+                    longitude = round(header['SITELONG'],2)
+                    # update the mymap DataFrame appropriately.
+                    mask = (mymap['Latitude'] == latitude) & (mymap['Longitude'] == longitude)
+                    if mask.any(): # If the latitude and longitude already exist in the DataFrame, just increment the count
+                        mymap.loc[mask, 'Count'] += 1
+                    else: # New latitude and longitude, add a new row with count=1
+                        new_row = {'Latitude': latitude, 'Longitude': longitude, 'Count': 1}
+                        mymap = pd.concat([mymap, pd.DataFrame([new_row])], ignore_index=True)
+                    
+                else:
+                    print(f"Skipping {filename} as it does not have SITELAT and SITELONG keywords.")
+                    logging.warning('Skipping %s as it does not have SITELAT and SITELONG keywords.', filename) if log else None
             
             if copyfiles:
                 #print('Copying file ', filename, ' to ', outputdir)
@@ -303,6 +327,40 @@ def main():
             total_label='Total'
             print(f"{total_label:<10} {total_filtered_files:>5}")
             print('\n')
+    
+    if plotmap:
+        mymap = mymap.astype({'Latitude': float, 'Longitude': float, 'Count': int})  # Ensure correct data types
+        # pprint.pprint(mymap)
+        # print('\n\n')
+        # print('Here\'s the unique pairs')
+        # print(mymap[['Latitude', 'Longitude']].drop_duplicates())
+        # print('\n Datatypes are:')
+        # print(mymap.dtypes)
+        # mymap['Latitude'] = mymap['Latitude'].astype(float)
+        # mymap['Longitude'] = mymap['Longitude'].astype(float)
+        # mymap['Count'] = mymap['Count'].astype(int)
+        # print(mymap.dtypes)
+
+        fig = go.Figure()
+        fig.add_trace(go.Scattergeo(lat=mymap['Latitude'], lon=mymap['Longitude'], text=mymap['Count'],
+                                   marker=dict( color=mymap['Count'], showscale=True, colorbar=dict(title='Count')),
+                                   mode='markers', name='FITS Frames'))
+        
+   
+        fig.update_layout(
+            title='FITS Frames Count by Location',
+            geo=dict(
+                scope='world',
+                showland=True,
+                projection_type='natural earth',
+                landcolor='rgb(217, 217, 217)',
+                showlakes=True,
+                lakecolor='rgb(255, 255, 255)',
+            )
+        )
+
+        fig.show()
+        #print(mymap.to_dict())
 
     exit(0)
 
@@ -320,7 +378,7 @@ def get_arguments():
 
 
     parser=ArgumentParser(
-        description='This program lets you select FITS files based on specific Header keywords and their values. You can then do statistics, move or copy the files'
+        description='This program lets you select FITS files based on specific FITS Header keywords and their values. You can then do statistics, move or copy the files'
         )
 
     parser.add_argument("-i", "--inputdir", help='The directory containing your FITS files', dest='inputdir')
@@ -333,6 +391,7 @@ def get_arguments():
                         If you use ALLHEADERS as the tablekey, a list of all the headers in all of the files \n \
                         that are in inputdir that match all (optional) keywords, with a count of the files that \n \
                         contain each keyword, will be printed.')
+    parser.add_argument("-p, --plot", action='store_true', dest='plot', help='Plot the count of matching files on a map.')
     MoveOrCopy=parser.add_mutually_exclusive_group()
     MoveOrCopy.add_argument("-m, --move", action='store_true', dest='movefiles', help='Move files that match all keywords into the outputdir.')
     MoveOrCopy.add_argument("-c, --copy", action='store_true', dest='copyfiles', help='Copy files that match all keywords into the outputdir.')
