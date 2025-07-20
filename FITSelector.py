@@ -342,9 +342,18 @@ def main():
 
         pprint.pprint(mymap)
         fig = px.scatter_geo(mymap, lat='Latitude', lon='Longitude', 
-                             color='Count', projection='natural earth', 
+                             color='Count', projection='natural earth',
                              color_continuous_scale='greens', title='Location of FITS frames')
 
+        # Right before your fig.show(), add these lines:
+        mymap = mymap.copy()
+        mymap['Latitude'] = pd.to_numeric(mymap['Latitude'], errors='coerce')
+        mymap['Longitude'] = pd.to_numeric(mymap['Longitude'], errors='coerce')
+        mymap['Count'] = pd.to_numeric(mymap['Count'], errors='coerce')
+        # Remove any rows with NaN values
+        mymap = mymap.dropna()
+        print("Cleaned mymap:")
+        print(mymap)
 
         fig.show()
         #print(mymap.to_dict())
