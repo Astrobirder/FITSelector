@@ -250,8 +250,8 @@ def main():
             if plotmap:
                 # If we are plotting the results on a map, we need to extract the RA and DEC from the header
                 if 'SITELAT' in header and 'SITELONG' in header:
-                    latitude = round(header['SITELAT'],2)
-                    longitude = round(header['SITELONG'],2)
+                    latitude = round(header['SITELAT'],1)
+                    longitude = round(header['SITELONG'],1)
                     # update the mymap DataFrame appropriately.
                     mask = (mymap['Latitude'] == latitude) & (mymap['Longitude'] == longitude)
                     if mask.any(): # If the latitude and longitude already exist in the DataFrame, just increment the count
@@ -341,23 +341,14 @@ def main():
         # mymap['Count'] = mymap['Count'].astype(int)
         # print(mymap.dtypes)
 
-        fig = go.Figure()
-        fig.add_trace(go.Scattergeo(lat=mymap['Latitude'], lon=mymap['Longitude'], text=mymap['Count'],
-                                   marker=dict( color=mymap['Count'], showscale=True, colorbar=dict(title='Count')),
-                                   mode='markers', name='FITS Frames'))
-        
-   
-        fig.update_layout(
-            title='FITS Frames Count by Location',
-            geo=dict(
-                scope='world',
-                showland=True,
-                projection_type='natural earth',
-                landcolor='rgb(217, 217, 217)',
-                showlakes=True,
-                lakecolor='rgb(255, 255, 255)',
-            )
-        )
+        fig = px.scatter_geo(mymap, 
+                            lat='Latitude', 
+                            lon='Longitude', 
+                            size='Count',  # This makes size proportional to Count
+                            color='Count', # This makes color proportional to Count too
+                            projection='natural earth',
+                            color_continuous_scale='Viridis',
+                            title='Location of FITS frames - Size proportional to Count')
 
         fig.show()
         #print(mymap.to_dict())
