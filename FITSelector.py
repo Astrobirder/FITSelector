@@ -375,19 +375,24 @@ def get_arguments():
 
 
     parser=ArgumentParser(
-        description='This program lets you select FITS files based on specific FITS Header keywords and their values. You can then do statistics, move or copy the files'
+        description='\nThis program lets you select FITS files based on specific FITS Header keywords and their values. ' \
+        'You can then generate statistics, plot data on a map and move or copy the files that match the optional keywords. ' \
+        'HINT: On Seestar FITS files, TRY: python3 FITSelector.py -i /path/to/your/fits/files  -t "TELESCOP" -p  ' \
+        ' Also try the special tableky "ALLHEADERS" to get a list of all headers in all files:  ' \
+        'python3 FITSelector -i /path/to/your/fits/files -t "ALLHEADERS"' \
         )
 
     parser.add_argument("-i", "--inputdir", help='The directory containing your FITS files', dest='inputdir')
     parser.add_argument("-o", "--outputdir", help='The directory where matching FITS files will be moved/copied. If unspecified, inputdir/output will be used', dest='outputdir')
     parser.add_argument("-k", "--keywords",  metavar='KEY=VALUE', nargs='+', 
                         help='FITS Header Keyword and value in the format -k \"EQMODE=1\". You can use multiple \
-                        -k \"FITSKEY1=VALUE1 FITSKEY2=VALUE2\" keys if you want all to be true to select a file.')
+                        -k \"FITSKEY1=VALUE1 FITSKEY2=VALUE2\" keys if you want all to be true to select a file. \
+                            You can also use -k "FITSKEY1>=VALUE1 FITSKEY2<=VALUE2" to use comparison operators.')
     parser.add_argument("-t, --tablekey", dest='tablekey', help='Create a summary table with a count of all the files for each unique value of the "tablekey". \n \
                         NOTE: if used with -k, all the files must also match all keywords. \n \
                         If you use ALLHEADERS as the tablekey, a list of all the headers in all of the files \n \
                         that are in inputdir that match all (optional) keywords, with a count of the files that \n \
-                        contain each keyword, will be printed.')
+                        contain each keyword.')
     parser.add_argument("-p, --plot", action='store_true', dest='plot', help='Plot the count of matching files on a map.')
     MoveOrCopy=parser.add_mutually_exclusive_group()
     MoveOrCopy.add_argument("-m, --move", action='store_true', dest='movefiles', help='Move files that match all keywords into the outputdir.')
